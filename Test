@@ -1,0 +1,34 @@
+#Initial Setup Cell
+import pandas as pd
+import matplotlib.pyplot as plt
+import time
+import numpy as np
+import statistics
+import scipy.io
+from scipy.stats import norm
+from scipy.optimize import curve_fit
+import scipy.integrate as integrate
+import scipy.special as special
+from sklearn.decomposition import PCA
+from sklearn.cluster import KMeans
+from sklearn import metrics
+from scipy.spatial import distance 
+import tensorflow as tf
+from tensorflow import keras
+from numpy import newaxis, expand_dims
+from tensorflow.keras import layers, Model
+from tensorflow.keras.layers import Input, Dense, Conv1D, MaxPooling1D, UpSampling1D, Conv1DTranspose, Activation
+import pickle
+%matplotlib qt
+
+file = pd.read_csv('C:\\Chemistry_4P1\\Masters_Work\\Simulated_traces\\ExampleTraces.csv')
+
+Time_trace=file["Time"].to_numpy()
+Event_trace=file["Events"].to_numpy()
+Background_trace=file["Background"].to_numpy()
+
+plt.figure()
+plt.plot(Time_trace, Event_trace)
+plt.xlabel('Time (s)')
+plt.ylabel('Current (A)')
+plt.grid(True)
