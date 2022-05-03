@@ -1,4 +1,5 @@
-# Initial Setup Cell
+The beggging of each section starts with ------ with a description of what the section does, Note starting with #
+#Initial Setup 
 import pandas as pd
 import matplotlib.pyplot as plt
 import time
@@ -19,54 +20,31 @@ from numpy import newaxis, expand_dims
 from tensorflow.keras import layers, Model
 from tensorflow.keras.layers import Input, Dense, Conv1D, MaxPooling1D, UpSampling1D, Conv1DTranspose, Activation
 import pickle
+import seaborn as sns
 %matplotlib qt
 
+#loading in simulated traces
 file = pd.read_csv('C:\\Chemistry_4P1\\Masters_Work\\Simulated_traces\\ExampleTraces.csv')
-
 Time_trace=file["Time"].to_numpy()
 Event_trace=file["Events"].to_numpy()
 Background_trace=file["Background"].to_numpy()
+mat = scipy.io.loadmat('C:\\Chemistry_4P1\\Masters_Work\\Sim_traces\\SNR_3_iac_3.mat')
+mat2 = scipy.io.loadmat('C:\\Chemistry_4P1\\Masters_Work\\Sim_traces\\SNR_3_iac0_3.mat')
+mat3 = scipy.io.loadmat('C:\\Chemistry_4P1\\Masters_Work\\Sim_traces\\SNR_3_EVT_3.mat')
 
-#plot initial graph
-plt.figure()
-plt.plot(Time_trace, Event_trace)
-plt.xlabel('Time (s)')
-plt.ylabel('Current (A)')
-plt.grid(True)
-
-#Importing of simulated traces and identification of True events : starts, ends and duratio
-mat = scipy.io.loadmat('C:\\Chemistry_4P1\\Masters_Work\\Sim_traces\\SNR_0.1_iac.mat')
-mat2 = scipy.io.loadmat('C:\\Chemistry_4P1\\Masters_Work\\Sim_traces\\SNR_0.1_iac0.mat')
-mat3 = scipy.io.loadmat('C:\\Chemistry_4P1\\Masters_Work\\Sim_traces\\SNR_0.1_EVT.mat')
-​
 Event_trace_x=np.squeeze(mat["Iac"])
 Background_trace_x=np.squeeze(mat2["Iac0"])
-​
+
 EVT_trace_x=np.squeeze(mat3["EVT"])
 EVT_dur=EVT_trace_x[:,1]
 num_EVT_points=int(np.sum(EVT_dur))
-​
+
 EVT_start=list(EVT_trace_x[:,0])
 EVT_end=list(EVT_trace_x[:,2])
 
-#Plotting of Event trace_x
-plt.figure()
-plt.plot(Time_trace,Event_trace_x)    
-for i in range(len(EVT_start)):
-        start=int(EVT_start[i])
-        end=int(EVT_end[i])
-        x=Time_trace[start:end]
-        y=Event_trace_x[start:end]
-        plt.plot(x,y,color="red")
-        #plt.title('Signal current over time (events highlighted in red)')
-        plt.xlabel('Time (s)')
-        plt.ylabel('Current (A)')
-        plt.grid(True)
-        
-#Loading experimental traces A,B,C
+#Loading experimental traces 1 and 2
 mat_Event_trace_expA = scipy.io.loadmat('C:\\Chemistry_4P1\\Masters_Work\\Sim_traces\\Event_trace_A.mat')
 mat_Event_trace_expB = scipy.io.loadmat('C:\\Chemistry_4P1\\Masters_Work\\Sim_traces\\Event_trace_B.mat')
-mat_Event_trace_expC = scipy.io.loadmat('C:\\Chemistry_4P1\\Masters_Work\\Sim_traces\\Event_trace_C.mat')
 
 #isolating the final 1 million points
 Event_trace_expA=np.squeeze(mat_Event_trace_expA["ch2"])
@@ -80,14 +58,8 @@ Event_trace_B=Event_trace_expB[4000000:5000000]
 Event_trace_B=Event_trace_B*(-1)
 Background_trace_B=Event_trace_expB[2000000:3000000]
 Background_trace_B=Event_trace_B*(-1)
-
-Event_trace_expC=np.squeeze(mat_Event_trace_expC["ch2"])
-Event_trace_C=Event_trace_expC[7000000:8000000]
-Event_trace_C=Event_trace_C*(-1)
-Background_trace_C=Event_trace_expC[3700000:4100000]
-Background_trace_C=Event_trace_C*(-1)
-
-#Static Thresholding and Zero crossing Function
+----------------------------------
+#Static thresholding technique
 def Event_Detector(Time_data, Background_data, Signal_data, std_multiplier):
     "Detects zero crossings, and events within a signal-time trace, using applied mulitplier to set thresholds"
     
@@ -123,10 +95,22 @@ def Event_Detector(Time_data, Background_data, Signal_data, std_multiplier):
     
     #Plotting the original Trace and threshold
     sigma_plot=Signal_upper_threshold*np.ones(1000000)
+    sigma_plot4=(Signal_mean+(4*Signal_st_dev))*np.ones(1000000)
+    sigma_plot3=(Signal_mean+(3*Signal_st_dev))*np.ones(1000000)
+    sigma_plot22=(Signal_mean+(2*Signal_st_dev))*np.ones(1000000)
+    sigma_plot2=Signal_lower_threshold*np.ones(1000000)
     plt.style.use('seaborn')
     plt.figure()
     plt.plot(Time_data, Signal_data)
-    plt.plot(Time_data,sigma_plot)
+    plt.plot(Time_data,sigma_plot, label='Static_{}'.format(std_multiplier))
+    #plt.plot(Time_data,sigma_plot4, label='Static_4')
+    #plt.plot(Time_data,sigma_plot3, label='Static_3')
+    #plt.plot(Time_data,sigma_plot22, label='Static_2')
+    plt.plot(Time_data,sigma_plot2, label='Static_1')
+    #plt.legend(bbox_to_anchor=(0.95, 0.3), loc='upper left', borderaxespad=0)
+    plt.xlabel('Time (s)')
+    plt.ylabel('Current (A)')
+    plt.grid(True)
     
     #Plotting/Highlighting the events within the original trace
     
@@ -139,63 +123,11 @@ def Event_Detector(Time_data, Background_data, Signal_data, std_multiplier):
                    plt.grid(True)
                   
     return event_start, event_end               
-​
-def Zero_crossing_Detector(Signal_data,Window_size,Step_size):
-    "Determines the number zero crossings per window in a data trace, and plots the corresponding results"
-    zero_crossings = []
-    for start in range(0,len(Signal_data),Step_size):
-        end=start+Window_size
-        Window_data=Signal_data[start:end] 
-        Zero_crossings_per_window=((np.diff(np.sign(Window_data)) !=0).sum())/(Window_size-1)
-        zero_crossings.append(Zero_crossings_per_window)
-        
-​
-    plt.figure()
-    plt.plot(zero_crossings)
-    plt.title('#Zero crossings normalized by window size ={} points'.format(Window_size))
-    plt.xlabel('Window position ({} points)'.format(Window_size))
-    plt.ylabel('#Zero crossings')
-​
-​
-    
-#Combination of the above two functions
-def Data_Processor(Time_data, Background_data, Signal_data, std_multiplier,Window_size,Step_size):
-    Event_Detector(Time_data, Background_data, Signal_data, std_multiplier)
-    Zero_crossing_Detector(Signal_data, Window_size,Step_size)
-        
-static_starts, static_ends=Event_Detector(Time_trace,Background_trace_x, Event_trace_x, 5)
-Zero_crossing_Detector(Event_trace_x, 100, 100)
 
-#Attempt to use RICE's Formula to find ZCR
-#Differentiate to find rates
-
-Background_series=pd.Series(Background_trace) 
-
-p=[]
-
-#Calculate the Autocorrelation function
-for k in range(100):
-    p.append(Background_series.autocorr(lag=k))
-
-plt.figure()
-plt.plot(p)
-
-p_grad1=[]
-p_grad2=[]
-for i in range(len(p)-1):
-    p_grad1.append((p[i+1]-p[i]))
-for i2 in range(len(p_grad1)-1):
-    p_grad2.append((p_grad1[i2+1]-p_grad1[i2])/1)
-    
-p_grad2[0]    
-
-plt.figure()
-plt.plot(p_grad2)
-
-#Would involve sqrting a negative number = doesn't work
-
-#ZCR probability based thresholding, fits to histogram, highlights events, can set P-Value. Returns the number of events found
-
+#using the static thresholding function, input : time trace, background trace, event trace, multiplier for which to multiply standard devaiation by to add to the mean for threshold)
+static_starts, static_ends=Event_Detector(Time_trace,Background_trace, Event_trace, X)
+---------------------
+#Zero crossing rate calc + P-value used to find event windows
 def Probability_Thresholding_Function(Background_array, Event_array,Time_array,Window_size,Step_size,nBins,Probability_threshold,is_plotting):
     #Establishing all functions
     def Zero_crossing_Detector_probability(Background_array,Window_size,Step_size,nBins):
@@ -247,7 +179,8 @@ def Probability_Thresholding_Function(Background_array, Event_array,Time_array,W
         fig = plt.figure()
         plt.hist(zero_crossings,bins=nBins)
         plt.xlabel('Zero Crossing Rate')
-        plt.ylabel('Probability of ZCR')
+        plt.ylabel('Frequency')
+        plt.grid(False)
     
     #Finding midpoints of histogram data
     mid_bin_edges=[]
@@ -257,7 +190,7 @@ def Probability_Thresholding_Function(Background_array, Event_array,Time_array,W
     
     xdata=mid_bin_edges
     ydata=counts
-​
+
     xdata = np.asarray(xdata)
     ydata = np.asarray(ydata).astype("float64")
     
@@ -270,14 +203,14 @@ def Probability_Thresholding_Function(Background_array, Event_array,Time_array,W
     expandedx=np.linspace(0,1,10000)
     fit_y = Gauss(expandedx, fit_A, fit_B, fit_mu, fit_sig)
     if is_plotting:
-        plt.plot(expandedx, fit_y, '-', label='fit', color="r")
+        plt.plot(expandedx, fit_y, '-', label='Gaussian fit', color="r")
         plt.legend()
     
     #Finding the ZCR threshold
     arguments = (fit_A, fit_B, fit_mu, fit_sig)
     Area=integrate.quad(Gauss,-np.inf, np.inf, args=arguments)
     Lower_Limit=Limit_finder(fit_A,fit_B,fit_mu,fit_sig,0,1,Area[0])  
-​
+
     #Obtaining ZCR and window positions
     ZC_Rate_events, Window_position=Zero_crossing_Rate_events(Event_array,Window_size,Step_size) 
     
@@ -316,7 +249,7 @@ def Probability_Thresholding_Function(Background_array, Event_array,Time_array,W
         event_points.append(y)
         if is_plotting:
             plt.plot(x,y,color="red")
-            plt.title('Signal current over time (events highlighted in red)')
+            #plt.title('Signal current over time (events highlighted in red)')
             plt.xlabel('Time (s)')
             plt.ylabel('Current (A)')
     #Printing the number of events found        
@@ -324,25 +257,22 @@ def Probability_Thresholding_Function(Background_array, Event_array,Time_array,W
     
     #Finding the longest event, and padding the rest to its size so that PCA can later be used.
     max_event_length = max([len(x) for x in event_points])
-    #for i in np.pad(event_points,(int(round(max_event_length/2)),int(np.floor(max_event_length/2))))
     padded_event_points = [np.pad(x, (int(round((max_event_length - len(x))/2)), int(np.floor((max_event_length - len(x))/2)))) for x in event_points]
         
-        
+    print(len(events_starts))    
     return event_points, max_event_length, padded_event_points, events_starts,events_ends
     
-    ZCR_points,length, padded_events, ZCR_starts,ZCR_ends=Probability_Thresholding_Function(Background_trace_x,Event_trace_C,Time_trace,100,100,40,0.999,is_plotting=True)
-    
-    #PCA and K-Means clustering performed on ZCR data
-    #Perform
+#calling zero crossing rate function
+ZCR_points,length, padded_events, ZCR_starts,ZCR_ends=Probability_Thresholding_Function(Background_trace_B,Event_trace_B,Time_trace,100,100,40,0.999,is_plotting=True)
+-------
+#PCA analysis of zero crossings event windows
+
 kmeans=KMeans(n_clusters=2, random_state=0).fit(np.stack(padded_events))
 array=kmeans.labels_
-
 colors=["red", "blue", "green","black","orange","yellow","brown","teal","purple","pink","gray"]
-
 fig, ax = plt.subplots()
 plt.xlabel('Principle Component 1')
 plt.ylabel('Principle Component 2')
-
 cluster_1=[]
 cluster_2=[]
 cluster_3=[]
@@ -356,29 +286,26 @@ for val in array:
      if val==2:
         cluster_3.append(val)
         
-
-pca = PCA(n_components=2)
+pca = PCA(n_components=2, svd_solver="full")
 r=pca.fit_transform(np.stack(padded_events,axis=0))
-#plt.figure()
-#plt.scatter(r[:,0],r[:,1])
+plt.figure()
+plt.scatter(r[:,0],r[:,1])
+plt.xlabel('Principle Component 1')
+plt.ylabel('Principle Component 2')
 
 for i in range(len(array)):
     label = array[i]
     ax.scatter(r[i][0], r[i][1], color=colors[label])
    
-
 print(colors[0],"=", str(len(cluster_1)))
 print(colors[1],"=", str(len(cluster_2)))
 print(colors[2],"=", str(len(cluster_3)))
-        
-    
+            
 distortions = []
 inertias = []
 mapping1 = {}
 mapping2 = {}
 K = range(1, 11)
-
-
 #Plotting an elbow graph 
 for k in K:
     # Building and fitting the model
@@ -388,7 +315,6 @@ for k in K:
     distortions.append(sum(np.min(distance.cdist(r, kmeanModel.cluster_centers_,
                                         'euclidean'), axis=1)) / r.shape[0])
     inertias.append(kmeanModel.inertia_)
- 
     mapping1[k] = sum(np.min(distance.cdist(r, kmeanModel.cluster_centers_,
                                    'euclidean'), axis=1)) / r.shape[0]
     mapping2[k] = kmeanModel.inertia_
@@ -396,19 +322,19 @@ for k in K:
 plt.figure()
 plt.plot(K, distortions, 'bx-')
 plt.xlabel('Number of clusters')
-plt.ylabel('Distortion')
-  
- #overlay clusters onto original trace
- start_i=[]
+plt.ylabel('WCSS')
+--------
+#Kmeans of PCA of ZCR
+start_i=[]
 ZCR_PCA_starts=[]
 ZCR_PCA_ends=[]
 for i, val in enumerate(array):
-    if val==1:
+    if val==0:
         start_i.append(i)
 for i in start_i:
     ZCR_PCA_starts.append(ZCR_starts[i])
     ZCR_PCA_ends.append(ZCR_ends[i])
-    
+        
 plt.figure()
 plt.plot(Time_trace,Event_trace_x)    
 true_event_points=[]
@@ -420,12 +346,12 @@ for i in range(len(ZCR_PCA_starts)):
         true_event_points.append(i)
         plt.plot(x,y,color="red")
         plt.xlabel('Time (s)')
-        plt.ylabel('Current (A)')
-
-#Convolutional Autoencoder Method
+        plt.ylabel('Current (A)')  
+-------------------------------------
+#Convolutional Autoencoder technique
 #Must run prior to Convolutional Autoencoder to prepare input data
 Background_trace=np.reshape(Background_trace,(1,1000000))
-Event_trace=np.reshape(Event_trace_x,(1,1000000))
+Event_trace=np.reshape(Event_trace_A,(1,1000000))
 
 mins=[]
 for val in Background_trace:
@@ -446,10 +372,12 @@ Event_trace = (Event_trace-minimum)/(maximum-minimum)
 
 Background_trace=np.reshape(Background_trace,(10000,100,1))
 Event_trace=np.reshape(Event_trace,(10000,100,1))
-
-#Construction of Convolutional Autoencoder
+-----------------
+#creation of convolutional Autoencoder
 #Creation of input and following layers including max pool and upsampling
 #Encoding
+
+
 input_layer=Input(shape =(100,1), name="INPUT")
 x=Conv1D(90, 3, activation='relu', padding='same')(input_layer)
 x=MaxPooling1D(2)(x)
@@ -493,30 +421,31 @@ history=Autoencoder.fit(
     callbacks=[keras.callbacks.EarlyStopping(monitor="val_loss",patience=5,mode="min")],
     
 )
-
-#Loading / Saving of the Model
-#saving
-Autoencoder.save("Conv_Autoencoder_exp")
-Autoencoder_encoder.save("Conv_Encoder_exp")
+--------------------
+#saving of Convolutional Autoencoder
+Autoencoder.save("Conv_Autoencoder_1")
+Autoencoder_encoder.save("Conv_Encoder_1")
 hist_dict = history.history
 
 
 with open('train_hist.pkl', 'wb') as handle:
     pickle.dump(hist_dict, handle)
-#loading
-Autoencoder = keras.models.load_model('Conv_Autoencoder_2')
-Autoencoder_encoder = keras.models.load_model('Conv_Encoder_2')
+-------------
+#loading Convolutional Autoencoder
+Autoencoder = keras.models.load_model('Conv_Autoencoder_1')
+Autoencoder_encoder = keras.models.load_model('Conv_Encoder_1')
 
 with open('train_hist.pkl', 'rb') as handle:
     history = pickle.load(handle)
-    
-#visualization of Convolutional Autoencoder results
+Autoencoder.summary()
+-------------------------
+#using the conolutional autoencoder to obtain the latent space + plotting loss graphs for training
 #Training and validation loss plotting(.history needed if not loading Model)
 plt.figure()
 plt.plot(np.log10(history["loss"]), label="log Training Loss")
 plt.plot(np.log10(history["val_loss"]), label="log Validation Loss")
 plt.xlabel("Epoch")
-plt.ylabel("Train MAE loss")
+plt.ylabel("Loss")
 plt.legend()
 plt.show()
 
@@ -524,6 +453,13 @@ plt.show()
 x_train_pred = Autoencoder.predict(Event_trace)
 
 test_mae_loss = np.mean(np.abs(x_train_pred -  Background_trace), axis=1)
+
+
+#plt.figure()
+#plt.hist(test_mae_loss, bins=50)
+#plt.xlabel("Test MAE loss")
+#plt.ylabel("Frequency")
+#plt.show()
 
 # Get reconstruction loss threshold.
 threshold = np.max(test_mae_loss)
@@ -543,15 +479,17 @@ lat_space=Autoencoder_encoder.predict(Event_trace)
 #3D Plotting of Latent space
 fig=plt.figure()
 ax = fig.add_subplot(projection='3d')
+#ax = fig.add_subplot()
 ax.scatter(lat_space[:, 0, 0], lat_space[:, 0, 1], lat_space[:, 0, 2])
-plt.xlabel("Axis 1")
-plt.ylabel("Axis 2")
+#ax.scatter(lat_space[:, 0, 1],lat_space[:, 0, 2])
+plt.xlabel("Axis 2")
+plt.ylabel("Axis 3")
 angle = 45
 ax.set_zlabel('Axis 3', rotation=angle)
 plt.legend()
 plt.show()
-
-#K-Means clustering on the Latent space data
+------------------
+#Kmeans clustering - elbow curve and assigning clusters to latent space + plotting of it
 lat_space=np.squeeze(lat_space)
 wcss=[]
 for i in range(1,7):
@@ -559,17 +497,14 @@ for i in range(1,7):
     kmeans.fit(lat_space)
     wcss_iter = kmeans.inertia_
     wcss.append(wcss_iter)
-​
 number_clusters = range(1,7)
 plt.figure()
 plt.plot(number_clusters,wcss)
 plt.title('The Elbow curve')
 plt.xlabel('Number of clusters')
 plt.ylabel('WCSS')
-​
-kmeans = KMeans(n_clusters=2, init ='k-means++', max_iter=300, n_init=10,random_state=0 )
+kmeans = KMeans(n_clusters=3, init ='k-means++', max_iter=300, n_init=10,random_state=0 )
 y_kmeans = kmeans.fit_predict(lat_space)
-​
 plt.figure()
 plt.scatter(lat_space[y_kmeans==0, 0], lat_space[y_kmeans==0, 1], s=100, c='red', label ='Cluster 1')
 plt.scatter(lat_space[y_kmeans==1, 0], lat_space[y_kmeans==1, 1], s=100, c='blue', label ='Cluster 2')
@@ -578,289 +513,268 @@ plt.scatter(lat_space[y_kmeans==3, 0], lat_space[y_kmeans==3, 1], s=100, c='pink
 plt.scatter(lat_space[y_kmeans==4, 0], lat_space[y_kmeans==4, 1], s=100, c='black', label ='Cluster 5')
 plt.xlabel('Principle Component 1')
 plt.ylabel('Principle Component 2')
-
-#Overlaying the clusters onto the original data , (uncomment the clusters containing event points
+--------------
+#visually overlaying clusters back onto original data trace, append the elements that you want to show as event clusters.
 Event_trace=np.reshape(Event_trace,(10000,100))
-Time_trace=np.reshape(Time_trace,(10000,100))
-       
+Time_trace=np.reshape(Time_trace,(10000,100))       
 plt.figure()
 plt.xlabel("Time (s)")
 plt.ylabel("Current (A)")
 #plt.title('Event trace clusters')
 plt.grid(True)
-
 conv_points=[]
 for i in range(len(Event_trace)):
     if y_kmeans[i]==0:
         plt.plot(Time_trace[i], Event_trace[i], c='red', label= 'Cluster 1')
-        #conv_points.append(i)
+        conv_points.append(i)
     if y_kmeans[i]==1:
         plt.plot(Time_trace[i], Event_trace[i], c='blue', label= 'Cluster 2')
-        conv_points.append(i)
+        #conv_points.append(i)
     if y_kmeans[i]==2:
-        plt.plot(Time_trace[i], Event_trace[i], c='red', label= 'Cluster 3')
+        plt.plot(Time_trace[i], Event_trace[i], c='green', label= 'Cluster 3')
         #conv_points.append(i)
     if y_kmeans[i]==3:
-        plt.plot(Time_trace[i], Event_trace[i], c='blue', label= 'Cluster 4')
-        #conv_points.append(i)
+        plt.plot(Time_trace[i], Event_trace[i], c='pink', label= 'Cluster 4')
+        conv_points.append(i)
     if y_kmeans[i]==4:
-        plt.plot(Time_trace[i], Event_trace[i], c='blue', label= 'Cluster 5')
+        plt.plot(Time_trace[i], Event_trace[i], c='black', label= 'Cluster 5')
         #conv_points.append(i)
-        
-#Evaluating the effectiveness of each technique
-#conv_points
-#static_starts, static_ends
-#ZCR_starts, ZCR_ends
-#EVT_start, EVT_end
-#ZCR_PCA_starts,ZCR_PCA_ends
-EVT_start=EVT_trace_x[:,0]
-EVT_end=EVT_trace_x[:,2]
+------------------------------------------------
+#Function : Working out how well each teachnique works, using the known location of events
+def Technique_analyser():
+    EVT_start=EVT_trace_x[:,0]
+    EVT_end=EVT_trace_x[:,2]
 
-###obtaining Convolutional Autoencoder output event starts and ends
-conv_starts=[]
-conv_ends=[]
-for i in range(len(conv_points)):
-    conv_starts.append(conv_points[i]*100)
-for i in range(len(conv_starts)):
-    conv_ends.append(conv_starts[i]+99)
-###########################################################    
-#Creating data suitable for Logic Gate XNOR Approach    
+    ###obtaining Convolutional Autoencoder output event starts and ends
+    conv_starts=[]
+    conv_ends=[]
+    for i in range(len(conv_points)):
+        conv_starts.append(conv_points[i]*100)
+    for i in range(len(conv_starts)):
+        conv_ends.append(conv_starts[i]+99)
+    ###########################################################    
+    #Creating data suitable for Logic Gate XNOR Approach    
 
-trace_length=1000000
-#techniques
-static=np.zeros((trace_length,1))
-for i in range(len(static_starts)):
-    start=static_starts[i]
-    end=static_ends[i]
-    static[start:end]=1
+    trace_length=1000000
+    #techniques
+    static=np.zeros((trace_length,1))
+    for i in range(len(static_starts)):
+        start=static_starts[i]
+        end=static_ends[i]
+        static[start:end]=1
+
+    ZCR=np.zeros((trace_length,1))
+    for i in range(len(ZCR_starts)):
+        start=ZCR_starts[i]
+        end=ZCR_ends[i]
+        ZCR[start:end]=1
+
+    ZCR_PCA=np.zeros((trace_length,1))
+    for i in range(len(ZCR_PCA_starts)):
+        start=ZCR_PCA_starts[i]
+        end=ZCR_PCA_ends[i]
+        ZCR_PCA[start:end]=1
+
+    Conv=np.zeros((trace_length,1))
+    for i in range(len(conv_starts)):
+        start=conv_starts[i]
+        end=conv_ends[i]
+        Conv[start:end]=1
+    #true events    
+    True_trace=np.zeros((trace_length,1))
+    for i in range(len(EVT_start)):
+        start=int(EVT_start[i])
+        end=int(EVT_end[i])
+        True_trace[start:end]=1
+
+    ###########################################################################################    
+
+    #isolate True negative and True positive and normalize using # event points
+    static_TP=np.zeros((trace_length,1))
+    for i in range(trace_length):
+        if static[i]==1 and True_trace[i]==1:
+            static_TP[i]= 1
+        else:
+            static_TP[i]= 0
+    static_TP_score=np.sum(static_TP) / num_EVT_points
+    print(static_TP_score)
     
-ZCR=np.zeros((trace_length,1))
-for i in range(len(ZCR_starts)):
-    start=ZCR_starts[i]
-    end=ZCR_ends[i]
-    ZCR[start:end]=1
+    #static false negative rate (missing events)
+    static_FN=np.zeros((trace_length,1))
+    for i in range(trace_length):
+        if static[i]==0 and True_trace[i]==1:
+            static_FN[i]= 1
+        else:
+            static_FN[i]= 0
+    static_FN_rate=np.sum(static_FN) / num_EVT_points
+    print(static_FN_rate)
+
+    static_TN=np.zeros((trace_length,1))
+    for i in range(trace_length):
+        if static[i]==0 and True_trace[i]==0:
+            static_TN[i]= 1
+        else:
+            static_TN[i]= 0
+    static_TN_score=np.sum(static_TN) / (1000000-num_EVT_points)
+    print(static_TN_score)
+
+    #static false positive rate
+    static_FP=np.zeros((trace_length,1))
+    for i in range(trace_length):
+        if static[i]==1 and True_trace[i]==0:
+            static_FP[i]= 1
+        else:
+            static_FP[i]= 0
+    static_FP_rate=np.sum(static_FP) / (1000000-num_EVT_points)
+    print(static_FP_rate)
     
-ZCR_PCA=np.zeros((trace_length,1))
-for i in range(len(ZCR_PCA_starts)):
-    start=ZCR_PCA_starts[i]
-    end=ZCR_PCA_ends[i]
-    ZCR_PCA[start:end]=1
+    print("----------")
+
     
-Conv=np.zeros((trace_length,1))
-for i in range(len(conv_starts)):
-    start=conv_starts[i]
-    end=conv_ends[i]
-    Conv[start:end]=1
-#true events    
-True_trace=np.zeros((trace_length,1))
-for i in range(len(EVT_start)):
-    start=int(EVT_start[i])
-    end=int(EVT_end[i])
-    True_trace[start:end]=1
+
+    ##############################################################################
+
+    #isolate True negative and True positive and normalize using # event points
+    ZCR_TP=np.zeros((trace_length,1))
+    for i in range(trace_length):
+        if ZCR[i]==1 and True_trace[i]==1:
+            ZCR_TP[i]= 1
+        else:
+            ZCR_TP[i]= 0
+    ZCR_TP_score=np.sum(ZCR_TP) / num_EVT_points
+    print(ZCR_TP_score)
     
-###########################################################################################    
-#Static accuracy (True negative + True positive)
-static_TNTP=np.zeros((trace_length,1))
-for i in range(trace_length):
-    if static[i] + True_trace[i] ==0 or static[i] + True_trace[i]==2:
-        static_TNTP[i]= 1
-    else:
-        static_TNTP[i]= 0
-static_accuracy=np.sum(static_TNTP) / trace_length
-print("static_accuracy=", static_accuracy)
+    #ZCR false negative rate (missing events)
+    ZCR_FN=np.zeros((trace_length,1))
+    for i in range(trace_length):
+        if ZCR[i]==0 and True_trace[i]==1:
+            ZCR_FN[i]= 1
+        else:
+            ZCR_FN[i]= 0
+    ZCR_FN_rate=np.sum(ZCR_FN) / num_EVT_points
+    print(ZCR_FN_rate)
 
-#isolate True negative and True positive and normalize using # event points
-static_TP=np.zeros((trace_length,1))
-for i in range(trace_length):
-    if static[i]==1 and True_trace[i]==1:
-        static_TP[i]= 1
-    else:
-        static_TP[i]= 0
-static_TP_score=np.sum(static_TP) / num_EVT_points
-print("static True positive probability=", static_TP_score)
+    ZCR_TN=np.zeros((trace_length,1))
+    for i in range(trace_length):
+        if ZCR[i]==0 and True_trace[i]==0:
+            ZCR_TN[i]= 1
+        else:
+            ZCR_TN[i]= 0
+    ZCR_TN_score=np.sum(ZCR_TN) / (1000000-num_EVT_points)
+    print(ZCR_TN_score)
 
-static_TN=np.zeros((trace_length,1))
-for i in range(trace_length):
-    if static[i]==0 and True_trace[i]==0:
-        static_TN[i]= 1
-    else:
-        static_TN[i]= 0
-static_TN_score=np.sum(static_TN) / (1000000-num_EVT_points)
-print("static TN score=", static_TN_score)
+    #ZCR false positive rate
+    ZCR_FP=np.zeros((trace_length,1))
+    for i in range(trace_length):
+        if ZCR[i]==1 and True_trace[i]==0:
+            ZCR_FP[i]= 1
+        else:
+            ZCR_FP[i]= 0
+    ZCR_FP_rate=np.sum(ZCR_FP) / (1000000-num_EVT_points)
+    print(ZCR_FP_rate)
+    
+    print("----------")
 
-#static false positive rate
-static_FP=np.zeros((trace_length,1))
-for i in range(trace_length):
-    if static[i]==1 and True_trace[i]==0:
-        static_FP[i]= 1
-    else:
-        static_FP[i]= 0
-static_FP_rate=np.sum(static_FP) / (1000000-num_EVT_points)
-print("static FP rate=", static_FP_rate)
+    #####################################################################################
+    #isolate True negative and True positive and normalize using # event points
+    ZCR_PCA_TP=np.zeros((trace_length,1))
+    for i in range(trace_length):
+        if ZCR_PCA[i]==1 and True_trace[i]==1:
+            ZCR_PCA_TP[i]= 1
+        else:
+            ZCR_PCA_TP[i]= 0
+    ZCR_PCA_TP_score=np.sum(ZCR_PCA_TP) / num_EVT_points
+    print(ZCR_PCA_TP_score)
+    
+    #ZCR_PCA false negative rate (missing events)
+    ZCR_PCA_FN=np.zeros((trace_length,1))
+    for i in range(trace_length):
+        if ZCR_PCA[i]==0 and True_trace[i]==1:
+            ZCR_PCA_FN[i]= 1
+        else:
+            ZCR_PCA_FN[i]= 0
+    ZCR_PCA_FN_rate=np.sum(ZCR_PCA_FN) / num_EVT_points
+    print(ZCR_PCA_FN_rate)
 
-#static false negative rate (missing events)
-static_FN=np.zeros((trace_length,1))
-for i in range(trace_length):
-    if static[i]==0 and True_trace[i]==1:
-        static_FN[i]= 1
-    else:
-        static_FN[i]= 0
-static_FN_rate=np.sum(static_FN) / num_EVT_points
-print("static FN rate=", static_FN_rate)
 
-##############################################################################
+    ZCR_PCA_TN=np.zeros((trace_length,1))
+    for i in range(trace_length):
+        if ZCR_PCA[i]==0 and True_trace[i]==0:
+            ZCR_PCA_TN[i]= 1
+        else:
+            ZCR_PCA_TN[i]= 0
+    ZCR_PCA_TN_score=np.sum(ZCR_PCA_TN) / (1000000-num_EVT_points)
+    print(ZCR_PCA_TN_score)
 
-#ZCR accuracy (True negative + True positive)
-ZCR_TNTP=np.zeros((trace_length,1))
-for i in range(trace_length):
-    if ZCR[i] + True_trace[i] ==0 or ZCR[i] + True_trace[i]==2:
-        ZCR_TNTP[i]= 1
-    else:
-        ZCR_TNTP[i]= 0
-ZCR_accuracy=np.sum(ZCR_TNTP) / trace_length
-print("ZCR_accuracy=", ZCR_accuracy)
+    #ZCR_PCA false positive rate
+    ZCR_PCA_FP=np.zeros((trace_length,1))
+    for i in range(trace_length):
+        if ZCR_PCA[i]==1 and True_trace[i]==0:
+            ZCR_PCA_FP[i]= 1
+        else:
+            ZCR_PCA_FP[i]= 0
+    ZCR_PCA_FP_rate=np.sum(ZCR_PCA_FP) / (1000000-num_EVT_points)
+    print(ZCR_PCA_FP_rate)
+    
+    print("----------")
 
-#isolate True negative and True positive and normalize using # event points
-ZCR_TP=np.zeros((trace_length,1))
-for i in range(trace_length):
-    if ZCR[i]==1 and True_trace[i]==1:
-        ZCR_TP[i]= 1
-    else:
-        ZCR_TP[i]= 0
-ZCR_TP_score=np.sum(ZCR_TP) / num_EVT_points
-print("ZCR True positive probability=", ZCR_TP_score)
+    
+    #######################################################################################
 
-ZCR_TN=np.zeros((trace_length,1))
-for i in range(trace_length):
-    if ZCR[i]==0 and True_trace[i]==0:
-        ZCR_TN[i]= 1
-    else:
-        ZCR_TN[i]= 0
-ZCR_TN_score=np.sum(ZCR_TN) / (1000000-num_EVT_points)
-print("ZCR TN score=", ZCR_TN_score)
+    #isolate True negative and True positive and normalize using # event points
+    Conv_TP=np.zeros((trace_length,1))
+    for i in range(trace_length):
+        if Conv[i]==1 and True_trace[i]==1:
+            Conv_TP[i]= 1
+        else:
+            Conv_TP[i]= 0
+    Conv_TP_score=np.sum(Conv_TP) / num_EVT_points
+    print(Conv_TP_score)
+    
+    #Conv false negative rate (missing events)
+    Conv_FN=np.zeros((trace_length,1))
+    for i in range(trace_length):
+        if Conv[i]==0 and True_trace[i]==1:
+            Conv_FN[i]= 1
+        else:
+            Conv_FN[i]= 0
+    Conv_FN_rate=np.sum(Conv_FN) / num_EVT_points
+    print(Conv_FN_rate)
 
-#ZCR false positive rate
-ZCR_FP=np.zeros((trace_length,1))
-for i in range(trace_length):
-    if ZCR[i]==1 and True_trace[i]==0:
-        ZCR_FP[i]= 1
-    else:
-        ZCR_FP[i]= 0
-ZCR_FP_rate=np.sum(ZCR_FP) / (1000000-num_EVT_points)
-print("ZCR FP rate=", ZCR_FP_rate)
+    Conv_TN=np.zeros((trace_length,1))
+    for i in range(trace_length):
+        if Conv[i]==0 and True_trace[i]==0:
+            Conv_TN[i]= 1
+        else:
+            Conv_TN[i]= 0
+    Conv_TN_score=np.sum(Conv_TN) / (1000000-num_EVT_points)
+    print(Conv_TN_score)
 
-#ZCR false negative rate (missing events)
-ZCR_FN=np.zeros((trace_length,1))
-for i in range(trace_length):
-    if ZCR[i]==0 and True_trace[i]==1:
-        ZCR_FN[i]= 1
-    else:
-        ZCR_FN[i]= 0
-ZCR_FN_rate=np.sum(ZCR_FN) / num_EVT_points
-print("ZCR FN rate=", ZCR_FN_rate)
+    #Conv false positive rate
+    Conv_FP=np.zeros((trace_length,1))
+    for i in range(trace_length):
+        if Conv[i]==1 and True_trace[i]==0:
+            Conv_FP[i]= 1
+        else:
+            Conv_FP[i]= 0
+    Conv_FP_rate=np.sum(Conv_FP) / (1000000-num_EVT_points)
+    print(Conv_FP_rate)
+   ----------
+#calling above function:
+Technique_analyser()
+--------------
+#Bar plots
 
-#####################################################################################
+df= pd.read_csv('C:\\Chemistry_4P1\\BIGDATAcsv.csv')
+#df['Average of TP and TN (score)']=(df.TP_Rate+df.TN_Rate)/2
+#df['TP-FP(score)']=(df.TP_Rate-df.FP_Rate)
+df2=df.loc[df.method.isin(["Static_5", "Static_4","Static_3","Static_2","Static_1"])]
+df3=df.loc[df.method.isin(["ZCR", "ZCR_ML"])]
+df4=df.loc[df.method.isin(["Conv_AE"])]
 
-#ZCR_PCA accuracy (True negative + True positive)
-
-ZCR_PCA_TNTP=np.zeros((trace_length,1))
-for i in range(trace_length):
-    if ZCR_PCA[i] + True_trace[i] ==0 or ZCR_PCA[i] + True_trace[i]==2:
-        ZCR_PCA_TNTP[i]= 1
-    else:
-        ZCR_PCA_TNTP[i]= 0
-ZCR_PCA_accuracy=np.sum(ZCR_PCA_TNTP) / trace_length
-print("ZCR_PCA_accuracy=", ZCR_PCA_accuracy)
-
-#isolate True negative and True positive and normalize using # event points
-ZCR_PCA_TP=np.zeros((trace_length,1))
-for i in range(trace_length):
-    if ZCR_PCA[i]==1 and True_trace[i]==1:
-        ZCR_PCA_TP[i]= 1
-    else:
-        ZCR_PCA_TP[i]= 0
-ZCR_PCA_TP_score=np.sum(ZCR_PCA_TP) / num_EVT_points
-print("ZCR_PCA True positive probability=", ZCR_PCA_TP_score)
-
-ZCR_PCA_TN=np.zeros((trace_length,1))
-for i in range(trace_length):
-    if ZCR_PCA[i]==0 and True_trace[i]==0:
-        ZCR_PCA_TN[i]= 1
-    else:
-        ZCR_PCA_TN[i]= 0
-ZCR_PCA_TN_score=np.sum(ZCR_PCA_TN) / (1000000-num_EVT_points)
-print("ZCR_PCA TN score=", ZCR_PCA_TN_score)
-
-#ZCR_PCA false positive rate
-ZCR_PCA_FP=np.zeros((trace_length,1))
-for i in range(trace_length):
-    if ZCR_PCA[i]==1 and True_trace[i]==0:
-        ZCR_PCA_FP[i]= 1
-    else:
-        ZCR_PCA_FP[i]= 0
-ZCR_PCA_FP_rate=np.sum(ZCR_PCA_FP) / (1000000-num_EVT_points)
-print("ZCR_PCA FP rate=", ZCR_PCA_FP_rate)
-
-#ZCR_PCA false negative rate (missing events)
-ZCR_PCA_FN=np.zeros((trace_length,1))
-for i in range(trace_length):
-    if ZCR_PCA[i]==0 and True_trace[i]==1:
-        ZCR_PCA_FN[i]= 1
-    else:
-        ZCR_PCA_FN[i]= 0
-ZCR_PCA_FN_rate=np.sum(ZCR_PCA_FN) / num_EVT_points
-print("ZCR_PCA FN rate=", ZCR_PCA_FN_rate)
-
-#######################################################################################
-
-#conv accuracy (True negative + True positive)
-Conv_TNTP=np.zeros((trace_length,1))
-for i in range(trace_length):
-    if Conv[i] + True_trace[i] ==0 or Conv[i] + True_trace[i]==2:
-        Conv_TNTP[i]= 1
-    else:
-        Conv_TNTP[i]= 0
-Conv_accuracy=np.sum(Conv_TNTP) / trace_length
-print("Conv_accuracy=", Conv_accuracy)
-
-#isolate True negative and True positive and normalize using # event points
-Conv_TP=np.zeros((trace_length,1))
-for i in range(trace_length):
-    if Conv[i]==1 and True_trace[i]==1:
-        Conv_TP[i]= 1
-    else:
-        Conv_TP[i]= 0
-Conv_TP_score=np.sum(Conv_TP) / num_EVT_points
-print("Conv True positive probability=",Conv_TP_score)
-
-Conv_TN=np.zeros((trace_length,1))
-for i in range(trace_length):
-    if Conv[i]==0 and True_trace[i]==0:
-        Conv_TN[i]= 1
-    else:
-        Conv_TN[i]= 0
-Conv_TN_score=np.sum(Conv_TN) / (1000000-num_EVT_points)
-print("Conv TN score=", Conv_TN_score)
-
-#Conv false positive rate
-Conv_FP=np.zeros((trace_length,1))
-for i in range(trace_length):
-    if Conv[i]==1 and True_trace[i]==0:
-        Conv_FP[i]= 1
-    else:
-        Conv_FP[i]= 0
-Conv_FP_rate=np.sum(Conv_FP) / (1000000-num_EVT_points)
-print("Conv FP rate=", Conv_FP_rate)
-
-#Conv false negative rate (missing events)
-Conv_FN=np.zeros((trace_length,1))
-for i in range(trace_length):
-    if Conv[i]==0 and True_trace[i]==1:
-        Conv_FN[i]= 1
-    else:
-        Conv_FN[i]= 0
-Conv_FN_rate=np.sum(Conv_FN) / num_EVT_points
-print("Conv FN rate=", Conv_FN_rate)
-
+ax1=sns.barplot(x="SNR",y="FP_Rate", hue="method" ,data=df4, ci=95, edgecolor='black')
+plt.grid(False)
+for i in ax1.containers:
+    ax1.bar_label(i)
 
 
